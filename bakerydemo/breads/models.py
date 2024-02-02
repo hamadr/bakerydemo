@@ -1,8 +1,9 @@
 from django import forms
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import models
-from modelcluster.fields import ParentalManyToManyField
-from wagtail.admin.panels import FieldPanel, MultiFieldPanel
+from modelcluster.fields import ParentalKey, ParentalManyToManyField
+from modelcluster.models import ClusterableModel
+from wagtail.admin.panels import FieldPanel, InlinePanel, MultiFieldPanel
 from wagtail.fields import StreamField
 from wagtail.models import DraftStateMixin, Page, RevisionMixin
 from wagtail.search import index
@@ -10,7 +11,7 @@ from wagtail.search import index
 from bakerydemo.base.blocks import BaseStreamBlock
 
 
-class Country(models.Model):
+class Country(ClusterableModel):
     """
     A Django model to store set of countries of origin.
     It is made accessible in the Wagtail admin interface through the CountrySnippetViewSet
@@ -28,6 +29,55 @@ class Country(models.Model):
 
     class Meta:
         verbose_name_plural = "Countries of Origin"
+
+    panels = [
+        FieldPanel("title"),
+        InlinePanel(
+            "regions",
+            label="Regions",
+            panels=[
+                FieldPanel("title"),
+                InlinePanel(
+                    "cities",
+                    panels=[
+                        FieldPanel("title"),
+                    ],
+                ),
+            ],
+        ),
+    ]
+
+
+class Region(ClusterableModel):
+    title = models.CharField(max_length=100)
+    country = ParentalKey(Country, related_name="regions")
+    sort_order = models.PositiveSmallIntegerField(
+        verbose_name=("Ordre"), default=0, blank=False, null=False
+    )
+    sort_order_field = "sort_order"
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name_plural = "Regions of Origin"
+        ordering = ("sort_order",)
+
+
+class City(models.Model):
+    title = models.CharField(max_length=100)
+    region = ParentalKey(Region, related_name="cities")
+    sort_order = models.PositiveSmallIntegerField(
+        verbose_name=("Ordre"), default=0, blank=False, null=False
+    )
+    sort_order_field = "sort_order"
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name_plural = "Cities of Origin"
+        ordering = ("sort_order",)
 
 
 class BreadIngredient(DraftStateMixin, RevisionMixin, models.Model):
